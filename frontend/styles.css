@@ -1,0 +1,264 @@
+:root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-hover: #334155;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --radius: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+#app {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+#user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+#user-name {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+#sign-out-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+#sign-out-btn:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Login card */
+
+.login-card {
+    text-align: center;
+    padding: 48px 24px;
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.login-card h2 {
+    margin-bottom: 8px;
+    font-size: 1.25rem;
+}
+
+.login-card p {
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+}
+
+.config-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.config-inputs input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+    text-align: left;
+}
+
+.config-inputs input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.config-inputs input::placeholder {
+    color: var(--text-muted);
+}
+
+#googleSignInBtn {
+    display: flex;
+    justify-content: center;
+}
+
+/* Main section */
+
+#main-section h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.8rem;
+}
+
+.error {
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    margin-bottom: 16px;
+}
+
+/* Instance cards */
+
+#instances {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.instance-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: border-color 0.2s;
+}
+
+.instance-card.running {
+    border-left: 3px solid var(--success);
+}
+
+.instance-card.stopped {
+    border-left: 3px solid var(--text-muted);
+}
+
+.instance-card.pending,
+.instance-card.stopping {
+    border-left: 3px solid #f59e0b;
+}
+
+.instance-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.instance-card .meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.instance-card .remaining {
+    font-size: 0.85rem;
+    color: var(--success);
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.instance-card .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.instance-card button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 0.875rem;
+    background: var(--surface-hover);
+    color: var(--text);
+    transition: all 0.2s;
+}
+
+.instance-card button:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.instance-card button.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.instance-card button.primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.empty {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 32px 0;
+}
+
+@media (max-width: 600px) {
+    #app {
+        padding: 16px 12px;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+
+    .login-card {
+        padding: 32px 16px;
+    }
+}

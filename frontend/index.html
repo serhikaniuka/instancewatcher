@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EC2 Instance Watcher</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>EC2 Instance Watcher</h1>
+            <div id="user-info" class="hidden">
+                <img id="user-avatar" alt="avatar" />
+                <span id="user-name"></span>
+                <button id="sign-out-btn">Sign Out</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="login-section">
+                <div class="login-card">
+                    <h2>Sign in to continue</h2>
+                    <p>Use your Google account to manage EC2 instances.</p>
+                    <div class="config-inputs">
+                        <input id="apiBaseUrl" type="text" placeholder="API Gateway URL" autocomplete="off" />
+                        <input id="googleClientId" type="text" placeholder="Google Client ID" autocomplete="off" />
+                    </div>
+                    <div id="googleSignInBtn"></div>
+                </div>
+            </div>
+
+            <div id="main-section" class="hidden">
+                <p id="error" class="error hidden"></p>
+                <section>
+                    <h2>Instances</h2>
+                    <div id="instances"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
