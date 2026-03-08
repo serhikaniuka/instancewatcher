@@ -25,14 +25,25 @@
             <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
             <div id="login-section">
                 <div class="login-card">
-                    <h2>Sign in to continue</h2>
-                    <p>Use your Google account to manage EC2 instances securely.</p>
+                    <h2>Sign in with Google</h2>
+                    <p>This app uses Google OAuth to authenticate you securely.</p>
+                    <div class="oauth-info">
+                        <h3>OAuth request</h3>
+                        <p>When you sign in, we request access to:</p>
+                        <ul>
+                            <li><strong>Email address</strong> — to verify your identity</li>
+                            <li><strong>Profile (name, picture)</strong> — to display your account info</li>
+                        </ul>
+                        <p class="oauth-note">Only the email configured on the backend is allowed to access this app.</p>
+                    </div>
                     <div class="config-inputs">
                         <input id="apiBaseUrl" type="text" placeholder="API Gateway URL" autocomplete="off" />
                         <input id="googleClientId" type="text" placeholder="Google Client ID" autocomplete="off" />
                     </div>
-                    <p class="login-hint">Only the email configured on the backend is allowed to access this app.</p>
-                    <div id="googleSignInBtn"></div>
+                    <div class="google-signin-wrapper">
+                        <p class="signin-prompt">Click below to sign in with your Google account:</p>
+                        <div id="googleSignInBtn"></div>
+                    </div>
                 </div>
             </div>
 

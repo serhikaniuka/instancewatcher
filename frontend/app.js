@@ -224,39 +224,60 @@
       instancesEl.innerHTML = '<p class="empty">No instances found.</p>';
       return;
     }
+    var table = document.createElement('table');
+    table.className = 'instances-table';
+    table.innerHTML =
+      '<thead><tr>' +
+      '<th>Name</th>' +
+      '<th>Instance ID</th>' +
+      '<th>State</th>' +
+      '<th>Type</th>' +
+      '<th>Time left</th>' +
+      '<th>Actions</th>' +
+      '</tr></thead><tbody></tbody>';
+    var tbody = table.querySelector('tbody');
+
     instances.forEach(function (inst) {
-      var card = document.createElement('div');
-      card.className = 'instance-card ' + (inst.state || '');
       var name = inst.name || inst.instance_id;
       var state = inst.state || 'unknown';
       var instanceType = inst.instance_type || '\u2014';
       var isActive = state === 'running' || state === 'pending';
       var remaining = isActive ? formatRemaining(inst.remaining_minutes) : '\u2014';
 
-      card.innerHTML =
-        '<h3>' + escapeHtml(name) + '</h3>' +
-        '<div class="meta">' + escapeHtml(inst.instance_id) + ' · ' + escapeHtml(state) + ' · ' + escapeHtml(instanceType) + '</div>' +
-        (isActive && remaining !== '\u2014' ? '<div class="remaining">Time left: ' + remaining + '</div>' : '') +
-        '<div class="actions"></div>';
-
-      var actions = card.querySelector('.actions');
+      var tr = document.createElement('tr');
+      tr.className = 'instance-row state-' + state;
+      var actionsHtml = '';
       if (state === 'stopped' || state === 'stopping' || state === 'terminated' || state === 'shutting-down') {
         [1, 2, 3].forEach(function (hours) {
-          var btn = document.createElement('button');
-          btn.className = 'primary';
-          btn.textContent = 'Start ' + hours + 'h';
-          btn.addEventListener('click', function () { postStart(inst.instance_id, hours); });
-          actions.appendChild(btn);
+          actionsHtml += '<button class="btn-primary" data-action="start" data-id="' + escapeHtml(inst.instance_id) + '" data-hours="' + hours + '">Start ' + hours + 'h</button>';
         });
       } else if (isActive) {
         [1, 2, 3].forEach(function (hours) {
-          var btn = document.createElement('button');
-          btn.textContent = 'Set ' + hours + 'h';
-          btn.addEventListener('click', function () { postSetDuration(inst.instance_id, hours); });
-          actions.appendChild(btn);
+          actionsHtml += '<button data-action="duration" data-id="' + escapeHtml(inst.instance_id) + '" data-hours="' + hours + '">Set ' + hours + 'h</button>';
         });
+      } else {
+        actionsHtml = '\u2014';
       }
-      instancesEl.appendChild(card);
+
+      tr.innerHTML =
+        '<td>' + escapeHtml(name) + '</td>' +
+        '<td><code>' + escapeHtml(inst.instance_id) + '</code></td>' +
+        '<td><span class="state-badge state-' + escapeHtml(state) + '">' + escapeHtml(state) + '</span></td>' +
+        '<td>' + escapeHtml(instanceType) + '</td>' +
+        '<td>' + (isActive && remaining !== '\u2014' ? '<span class="remaining">' + remaining + '</span>' : '\u2014') + '</td>' +
+        '<td class="actions-cell">' + actionsHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    instancesEl.appendChild(table);
+
+    table.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      var id = btn.getAttribute('data-id');
+      var hours = parseInt(btn.getAttribute('data-hours'), 10);
+      if (btn.getAttribute('data-action') === 'start') postStart(id, hours);
+      else if (btn.getAttribute('data-action') === 'duration') postSetDuration(id, hours);
     });
   }
 

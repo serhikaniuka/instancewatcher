@@ -4,6 +4,7 @@ build/
 # Terraform
 terraform/.terraform/
 terraform/*.tfplan
+terraform/tfplan
 terraform/*.tfstate*
 terraform/*.tfstate.backup
 terraform/terraform.tfvars
