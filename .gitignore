@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfplan
+terraform/*.tfstate*
+terraform/*.tfstate.backup
+terraform/terraform.tfvars
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# Misc
+test.txt
+instancewatcher/

@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and set your values.
+# aws_region    = "eu-central-1"
+
+project_name      = "instancewatcher"
+allowed_email     = "your@email.com"
+google_client_id  = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+
+# Frontend (S3 + CloudFront). Bucket name must be globally unique.
+frontend_bucket_name = "instancewatcher-frontend-REPLACE_WITH_UNIQUE_SUFFIX"
+# cloudfront_price_class = "PriceClass_100"   # optional; default PriceClass_100
+
+# Route53 + custom domain for frontend
+domain_zone     = "kanyuka.info"
+frontend_domain = "iw.kanyuka.info"

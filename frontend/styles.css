@@ -55,9 +55,22 @@ header h1 {
     width: 32px;
     height: 32px;
     border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 #user-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+#user-email {
     font-size: 0.875rem;
     color: var(--text-muted);
 }
@@ -82,6 +95,27 @@ header h1 {
     display: none !important;
 }
 
+.toast {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.toast.success {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: var(--success);
+    color: #bbf7d0;
+}
+
+.toast.error {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: var(--danger);
+    color: #fecaca;
+}
+
 /* Login card */
 
 .login-card {
@@ -101,6 +135,12 @@ header h1 {
     color: var(--text-muted);
     margin-bottom: 24px;
     font-size: 0.9rem;
+}
+
+.login-card .login-hint {
+    margin-top: -10px;
+    margin-bottom: 18px;
+    font-size: 0.82rem;
 }
 
 .config-inputs {
@@ -256,6 +296,11 @@ header h1 {
         flex-direction: column;
         gap: 12px;
         text-align: center;
+    }
+
+    #user-info {
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .login-card {

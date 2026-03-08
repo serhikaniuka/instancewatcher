@@ -9,12 +9,16 @@
   var userInfoEl = document.getElementById('user-info');
   var userAvatarEl = document.getElementById('user-avatar');
   var userNameEl = document.getElementById('user-name');
+  var userEmailEl = document.getElementById('user-email');
   var signOutBtnEl = document.getElementById('sign-out-btn');
+  var toastEl = document.getElementById('toast');
   var errorEl = document.getElementById('error');
   var instancesEl = document.getElementById('instances');
   var idToken = null;
+  var userProfile = null;
+  var googleInitializedForClientId = '';
+  var toastTimer = null;
 
-  // Persist config across page loads
   if (apiBaseUrlEl && localStorage.getItem('iw_api_url')) {
     apiBaseUrlEl.value = localStorage.getItem('iw_api_url');
   }
@@ -27,6 +31,21 @@
     errorEl.classList.toggle('hidden', !msg);
   }
 
+  function hideToast() {
+    if (!toastEl) return;
+    toastEl.classList.add('hidden');
+    toastEl.classList.remove('success', 'error');
+  }
+
+  function showToast(message, isError) {
+    if (!toastEl || !message) return;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastEl.textContent = message;
+    toastEl.classList.remove('hidden', 'success', 'error');
+    toastEl.classList.add(isError ? 'error' : 'success');
+    toastTimer = setTimeout(hideToast, 3000);
+  }
+
   function getApiBase() {
     return (apiBaseUrlEl && apiBaseUrlEl.value.trim()) || '';
   }
@@ -35,24 +54,72 @@
     return (googleClientIdEl && googleClientIdEl.value.trim()) || '';
   }
 
-  function parseJwt(token) {
+  function parseJwtClaims(token) {
     try {
-      return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      var parts = (token || '').split('.');
+      if (parts.length < 2) return {};
+      var payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (payload.length % 4) payload += '=';
+      var decoded = atob(payload);
+      var utf8 = decodeURIComponent(decoded.split('').map(function (ch) {
+        return '%' + ('00' + ch.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(utf8);
     } catch (e) {
       return {};
     }
   }
 
-  function initGoogleSignIn() {
+  function safeString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  function setAuthUi(isLoggedIn) {
+    loginSectionEl.classList.toggle('hidden', isLoggedIn);
+    mainSectionEl.classList.toggle('hidden', !isLoggedIn);
+    userInfoEl.classList.toggle('hidden', !isLoggedIn);
+  }
+
+  function setUserProfile(profile) {
+    userProfile = profile || null;
+    if (userNameEl) userNameEl.textContent = (userProfile && userProfile.name) || '';
+    if (userEmailEl) userEmailEl.textContent = (userProfile && userProfile.email) || '';
+
+    if (userAvatarEl) {
+      if (userProfile && userProfile.picture) {
+        userAvatarEl.src = userProfile.picture;
+        userAvatarEl.classList.remove('hidden');
+      } else {
+        userAvatarEl.src = '';
+        userAvatarEl.classList.add('hidden');
+      }
+    }
+  }
+
+  function clearSessionUi() {
+    idToken = null;
+    setUserProfile(null);
+    setAuthUi(false);
+    instancesEl.innerHTML = '';
+  }
+
+  function initGoogleSignIn(force) {
     var clientId = getClientId();
     if (!clientId) {
       if (googleSignInBtnEl) googleSignInBtnEl.innerHTML = '';
+      googleInitializedForClientId = '';
       return;
     }
+    if (!force && googleInitializedForClientId === clientId) return;
+
     if (typeof google === 'undefined' || !google.accounts) {
-      if (googleSignInBtnEl) googleSignInBtnEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">Loading Google…</span>';
+      if (googleSignInBtnEl) {
+        googleSignInBtnEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">Loading Google...</span>';
+      }
       return;
     }
+
+    if (googleSignInBtnEl) googleSignInBtnEl.innerHTML = '';
     google.accounts.id.initialize({
       client_id: clientId,
       auto_select: false,
@@ -64,39 +131,43 @@
       size: 'large',
       text: 'signin_with'
     });
+    googleInitializedForClientId = clientId;
   }
 
   function handleCredentialResponse(response) {
     if (!response || !response.credential) return;
     idToken = response.credential;
 
-    var claims = parseJwt(idToken);
-    if (userAvatarEl && claims.picture) {
-      userAvatarEl.src = claims.picture;
-      userAvatarEl.classList.remove('hidden');
-    }
-    if (userNameEl && claims.name) {
-      userNameEl.textContent = claims.name;
-    }
+    var claims = parseJwtClaims(idToken);
+    setUserProfile({
+      name: safeString(claims.name),
+      email: safeString(claims.email),
+      picture: safeString(claims.picture)
+    });
 
-    loginSectionEl.classList.add('hidden');
-    mainSectionEl.classList.remove('hidden');
-    userInfoEl.classList.remove('hidden');
+    setAuthUi(true);
     showError('');
+    showToast('Signed in successfully.', false);
     fetchInstances();
   }
 
-  function signOut() {
-    idToken = null;
+  function signOut(silent) {
+    var email = userProfile && userProfile.email;
     if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
       google.accounts.id.disableAutoSelect();
     }
-    mainSectionEl.classList.add('hidden');
-    loginSectionEl.classList.remove('hidden');
-    userInfoEl.classList.add('hidden');
-    if (userAvatarEl) userAvatarEl.src = '';
-    if (userNameEl) userNameEl.textContent = '';
-    instancesEl.innerHTML = '';
+
+    var finish = function () {
+      clearSessionUi();
+      showError('');
+      if (!silent) showToast('Signed out.', false);
+    };
+
+    if (email && typeof google !== 'undefined' && google.accounts && google.accounts.id && typeof google.accounts.id.revoke === 'function') {
+      google.accounts.id.revoke(email, finish);
+    } else {
+      finish();
+    }
   }
 
   function apiFetch(path, options) {
@@ -115,11 +186,19 @@
     showError('');
     apiFetch('/instances')
       .then(function (res) {
+        if (res.status === 401 || res.status === 403) {
+          throw { authError: true, message: 'Unauthorized. Please sign in again.' };
+        }
         if (!res.ok) return res.json().then(function (b) { throw new Error(b.error || res.statusText); });
         return res.json();
       })
       .then(function (data) { renderInstances(data.instances || []); })
       .catch(function (err) {
+        if (err && err.authError) {
+          clearSessionUi();
+          showToast(err.message, true);
+          return;
+        }
         showError(err.message || 'Failed to load instances');
         renderInstances([]);
       });
@@ -156,7 +235,7 @@
 
       card.innerHTML =
         '<h3>' + escapeHtml(name) + '</h3>' +
-        '<div class="meta">' + escapeHtml(inst.instance_id) + ' \u00b7 ' + escapeHtml(state) + ' \u00b7 ' + escapeHtml(instanceType) + '</div>' +
+        '<div class="meta">' + escapeHtml(inst.instance_id) + ' · ' + escapeHtml(state) + ' · ' + escapeHtml(instanceType) + '</div>' +
         (isActive && remaining !== '\u2014' ? '<div class="remaining">Time left: ' + remaining + '</div>' : '') +
         '<div class="actions"></div>';
 
@@ -209,7 +288,12 @@
       .catch(function (err) { showError(err.message || 'Set duration failed'); });
   }
 
-  if (signOutBtnEl) signOutBtnEl.addEventListener('click', signOut);
+  if (signOutBtnEl) {
+    signOutBtnEl.addEventListener('click', function () { signOut(false); });
+  }
+  if (toastEl) {
+    toastEl.addEventListener('click', hideToast);
+  }
 
   if (apiBaseUrlEl) {
     apiBaseUrlEl.addEventListener('change', function () {
@@ -218,11 +302,19 @@
   }
   if (googleClientIdEl) {
     googleClientIdEl.addEventListener('input', function () {
-      localStorage.setItem('iw_client_id', googleClientIdEl.value.trim());
-      initGoogleSignIn();
+      var value = googleClientIdEl.value.trim();
+      localStorage.setItem('iw_client_id', value);
+      if (value !== googleInitializedForClientId) initGoogleSignIn(true);
     });
-    googleClientIdEl.addEventListener('change', initGoogleSignIn);
+    googleClientIdEl.addEventListener('change', function () {
+      var value = googleClientIdEl.value.trim();
+      localStorage.setItem('iw_client_id', value);
+      if (value !== googleInitializedForClientId) initGoogleSignIn(true);
+    });
   }
 
-  window.addEventListener('load', initGoogleSignIn);
+  window.addEventListener('load', function () {
+    setAuthUi(false);
+    initGoogleSignIn(true);
+  });
 })();

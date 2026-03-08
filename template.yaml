@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: EC2 time-boxed starter with Google login
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 256
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        STATE_TABLE: !Ref InstanceEc2StateTable
+        ACTION_TABLE: !Ref InstanceEc2ActionTable
+        ALLOWED_EMAIL: !Ref AllowedEmail
+        GOOGLE_CLIENT_ID: !Ref GoogleClientId
+
+Parameters:
+  AllowedEmail:
+    Type: String
+    Default: serhikaniuka@gmail.com
+    Description: Google account email allowed to use API
+  GoogleClientId:
+    Type: String
+    Default: ""
+    Description: Optional Google OAuth Web Client ID to enforce token audience
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowOrigins:
+          - "*"
+
+  InstanceEc2StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: instanceec2_state
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: instance_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: instance_id
+          KeyType: HASH
+
+  InstanceEc2ActionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: instanceec2_action
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: action_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: action_id
+          KeyType: HASH
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: instancewatcher-api
+      CodeUri: lambdas/api/
+      Handler: app.lambda_handler
+      Environment:
+        Variables:
+          STATE_TABLE: !Ref InstanceEc2StateTable
+          ACTION_TABLE: !Ref InstanceEc2ActionTable
+          ALLOWED_EMAIL: !Ref AllowedEmail
+          GOOGLE_CLIENT_ID: !Ref GoogleClientId
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:DescribeInstances
+                - ec2:StartInstances
+                - ec2:StopInstances
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:Scan
+                - dynamodb:BatchGetItem
+              Resource:
+                - !GetAtt InstanceEc2StateTable.Arn
+                - !GetAtt InstanceEc2ActionTable.Arn
+      Events:
+        HealthRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /health
+            Method: GET
+        InstancesRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /instances
+            Method: GET
+        StartRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /instances/{instance_id}/start
+            Method: POST
+        SetDurationRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /instances/{instance_id}/set-duration
+            Method: POST
+
+  SchedulerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: instancewatcher-scheduler
+      CodeUri: lambdas/scheduler/
+      Handler: app.lambda_handler
+      Environment:
+        Variables:
+          STATE_TABLE: !Ref InstanceEc2StateTable
+          ACTION_TABLE: !Ref InstanceEc2ActionTable
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:DescribeInstances
+                - ec2:StopInstances
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - dynamodb:Scan
+                - dynamodb:DeleteItem
+                - dynamodb:PutItem
+              Resource:
+                - !GetAtt InstanceEc2StateTable.Arn
+                - !GetAtt InstanceEc2ActionTable.Arn
+      Events:
+        Every5Minutes:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Enabled: true
+
+Outputs:
+  ApiBaseUrl:
+    Description: HTTP API base URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"

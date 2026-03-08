@@ -13,20 +13,25 @@
             <h1>EC2 Instance Watcher</h1>
             <div id="user-info" class="hidden">
                 <img id="user-avatar" alt="avatar" />
-                <span id="user-name"></span>
+                <div class="user-meta">
+                    <span id="user-name"></span>
+                    <span id="user-email"></span>
+                </div>
                 <button id="sign-out-btn">Sign Out</button>
             </div>
         </header>
 
         <main>
+            <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
             <div id="login-section">
                 <div class="login-card">
                     <h2>Sign in to continue</h2>
-                    <p>Use your Google account to manage EC2 instances.</p>
+                    <p>Use your Google account to manage EC2 instances securely.</p>
                     <div class="config-inputs">
                         <input id="apiBaseUrl" type="text" placeholder="API Gateway URL" autocomplete="off" />
                         <input id="googleClientId" type="text" placeholder="Google Client ID" autocomplete="off" />
                     </div>
+                    <p class="login-hint">Only the email configured on the backend is allowed to access this app.</p>
                     <div id="googleSignInBtn"></div>
                 </div>
             </div>
