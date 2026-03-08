@@ -59,6 +59,17 @@ resource "aws_dynamodb_table" "action" {
   }
 }
 
+resource "aws_dynamodb_table" "user_config" {
+  name         = "instanceec2_user_config"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "email"
+
+  attribute {
+    name = "email"
+    type = "S"
+  }
+}
+
 # ------------------------------------------------------------------------------
 # Lambda build (null_resource + local-exec)
 # ------------------------------------------------------------------------------
@@ -71,7 +82,7 @@ locals {
   scheduler_src_hash = filebase64sha256("${local.root_dir}/lambdas/scheduler/app.py")
 
   frontend_dir   = "${local.root_dir}/frontend"
-  frontend_files = fileset(local.frontend_dir, "**")
+  frontend_files = setsubtract(fileset(local.frontend_dir, "**"), toset(["config.json"]))
   content_type_map = {
     "html" = "text/html"
     "js"   = "application/javascript"
@@ -104,12 +115,22 @@ resource "null_resource" "build_api" {
       set -e
       BUILD_DIR="${local.build_dir}"
       API_PKG="$BUILD_DIR/api_pkg"
-      rm -rf "$API_PKG"
-      mkdir -p "$API_PKG"
-      pip install -q -t "$API_PKG" -r "${local.root_dir}/lambdas/requirements.txt"
-      cp "${local.root_dir}/lambdas/api/app.py" "$API_PKG/"
-      (cd "$API_PKG" && zip -q -r "$BUILD_DIR/api.zip" .)
-      rm -rf "$API_PKG"
+      mkdir -p "$BUILD_DIR"
+      if command -v docker &>/dev/null; then
+        docker run --rm \
+          -v "${local.root_dir}:/var/task:ro" \
+          -v "$BUILD_DIR:/var/output" \
+          public.ecr.aws/sam/build-python3.12:latest \
+          bash -c 'pip install -q -r /var/task/lambdas/requirements.txt -t /tmp/api_pkg && cp /var/task/lambdas/api/app.py /tmp/api_pkg/ && find /tmp/api_pkg -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && (cd /tmp/api_pkg && zip -q -r /var/output/api.zip .)'
+      else
+        rm -rf "$API_PKG"
+        mkdir -p "$API_PKG"
+        pip install -q --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 -t "$API_PKG" -r "${local.root_dir}/lambdas/requirements.txt" --only-binary=:all:
+        cp "${local.root_dir}/lambdas/api/app.py" "$API_PKG/"
+        find "$API_PKG" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        (cd "$API_PKG" && zip -q -r "$BUILD_DIR/api.zip" .)
+        rm -rf "$API_PKG"
+      fi
     EOT
     environment = {
       PIP_DISABLE_PIP_VERSION_CHECK = "1"
@@ -178,7 +199,9 @@ resource "aws_iam_role_policy" "api" {
           aws_dynamodb_table.state.arn,
           "${aws_dynamodb_table.state.arn}/*",
           aws_dynamodb_table.action.arn,
-          "${aws_dynamodb_table.action.arn}/*"
+          "${aws_dynamodb_table.action.arn}/*",
+          aws_dynamodb_table.user_config.arn,
+          "${aws_dynamodb_table.user_config.arn}/*"
         ]
       },
       {
@@ -270,10 +293,11 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      STATE_TABLE      = aws_dynamodb_table.state.name
-      ACTION_TABLE     = aws_dynamodb_table.action.name
-      ALLOWED_EMAIL    = var.allowed_email
-      GOOGLE_CLIENT_ID = var.google_client_id
+      STATE_TABLE       = aws_dynamodb_table.state.name
+      ACTION_TABLE      = aws_dynamodb_table.action.name
+      USER_CONFIG_TABLE = aws_dynamodb_table.user_config.name
+      ALLOWED_EMAIL     = var.allowed_email
+      GOOGLE_CLIENT_ID  = var.google_client_id
     }
   }
 
@@ -326,6 +350,18 @@ resource "aws_apigatewayv2_integration" "api" {
 resource "aws_apigatewayv2_route" "health" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /health"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
+resource "aws_apigatewayv2_route" "config" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /config"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
+resource "aws_apigatewayv2_route" "config_post" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /config"
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
 }
 
@@ -508,6 +544,16 @@ resource "aws_s3_object" "frontend" {
   source       = "${local.frontend_dir}/${each.value}"
   content_type = lookup(local.content_type_map, try(lower(replace(regex("\\.[^.]+$", each.value), ".", "")), ""), "application/octet-stream")
   etag         = filemd5("${local.frontend_dir}/${each.value}")
+}
+
+resource "aws_s3_object" "frontend_config" {
+  bucket       = aws_s3_bucket.frontend.id
+  key          = "config.json"
+  content_type = "application/json"
+  content      = jsonencode({
+    api_base_url     = aws_apigatewayv2_api.main.api_endpoint
+    google_client_id = var.google_client_id
+  })
 }
 
 resource "aws_acm_certificate" "frontend" {

@@ -9,12 +9,25 @@ BUILD_DIR="$PROJECT_ROOT/build"
 echo "Building Lambda packages..."
 mkdir -p "$BUILD_DIR"
 API_PKG="$BUILD_DIR/api_pkg"
-rm -rf "$API_PKG"
-mkdir -p "$API_PKG"
-pip install -q -t "$API_PKG" -r "$PROJECT_ROOT/lambdas/requirements.txt"
-cp "$PROJECT_ROOT/lambdas/api/app.py" "$API_PKG/"
-(cd "$API_PKG" && zip -q -r "$BUILD_DIR/api.zip" .)
-rm -rf "$API_PKG"
+
+# Use Docker (SAM build image) for correct Lambda Python 3.12 compatibility
+if command -v docker &>/dev/null; then
+  echo "Using Docker (SAM Python 3.12 image) for API build..."
+  docker run --rm \
+    -v "$PROJECT_ROOT:/var/task:ro" \
+    -v "$BUILD_DIR:/var/output" \
+    public.ecr.aws/sam/build-python3.12:latest \
+    bash -c 'pip install -q -r /var/task/lambdas/requirements.txt -t /tmp/api_pkg && cp /var/task/lambdas/api/app.py /tmp/api_pkg/ && find /tmp/api_pkg -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && (cd /tmp/api_pkg && zip -q -r /var/output/api.zip .)'
+else
+  echo "Docker not found, using pip with --platform (may have compatibility issues)..."
+  rm -rf "$API_PKG"
+  mkdir -p "$API_PKG"
+  pip install -q --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 -t "$API_PKG" -r "$PROJECT_ROOT/lambdas/requirements.txt" --only-binary=:all:
+  cp "$PROJECT_ROOT/lambdas/api/app.py" "$API_PKG/"
+  find "$API_PKG" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+  (cd "$API_PKG" && zip -q -r "$BUILD_DIR/api.zip" .)
+  rm -rf "$API_PKG"
+fi
 (cd "$PROJECT_ROOT/lambdas/scheduler" && zip -q -o "$BUILD_DIR/scheduler.zip" app.py)
 echo "Build done."
 

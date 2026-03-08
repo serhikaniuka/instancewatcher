@@ -2,8 +2,8 @@
   'use strict';
 
   var apiBaseUrlEl = document.getElementById('apiBaseUrl');
-  var googleClientIdEl = document.getElementById('googleClientId');
   var googleSignInBtnEl = document.getElementById('googleSignInBtn');
+  var saveConfigBtnEl = document.getElementById('saveConfigBtn');
   var loginSectionEl = document.getElementById('login-section');
   var mainSectionEl = document.getElementById('main-section');
   var userInfoEl = document.getElementById('user-info');
@@ -19,12 +19,8 @@
   var googleInitializedForClientId = '';
   var toastTimer = null;
 
-  if (apiBaseUrlEl && localStorage.getItem('iw_api_url')) {
-    apiBaseUrlEl.value = localStorage.getItem('iw_api_url');
-  }
-  if (googleClientIdEl && localStorage.getItem('iw_client_id')) {
-    googleClientIdEl.value = localStorage.getItem('iw_client_id');
-  }
+  var bootstrapConfig = { api_base_url: '', google_client_id: '' };
+  var runtimeConfig = { api_url: '', google_client_id: '' };
 
   function showError(msg) {
     errorEl.textContent = msg || '';
@@ -47,11 +43,12 @@
   }
 
   function getApiBase() {
-    return (apiBaseUrlEl && apiBaseUrlEl.value.trim()) || '';
+    if (apiBaseUrlEl && apiBaseUrlEl.value.trim()) return apiBaseUrlEl.value.trim();
+    return runtimeConfig.api_url || bootstrapConfig.api_base_url || '';
   }
 
   function getClientId() {
-    return (googleClientIdEl && googleClientIdEl.value.trim()) || '';
+    return runtimeConfig.google_client_id || bootstrapConfig.google_client_id || '';
   }
 
   function parseJwtClaims(token) {
@@ -104,9 +101,11 @@
   }
 
   function initGoogleSignIn(force) {
-    var clientId = getClientId();
+    var clientId = bootstrapConfig.google_client_id;
     if (!clientId) {
-      if (googleSignInBtnEl) googleSignInBtnEl.innerHTML = '';
+      if (googleSignInBtnEl) {
+        googleSignInBtnEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">Loading config...</span>';
+      }
       googleInitializedForClientId = '';
       return;
     }
@@ -148,7 +147,49 @@
     setAuthUi(true);
     showError('');
     showToast('Signed in successfully.', false);
-    fetchInstances();
+    fetchUserConfigThenInstances();
+  }
+
+  function getBootstrapApiBase() {
+    return bootstrapConfig.api_base_url || '';
+  }
+
+  function fetchUserConfigThenInstances() {
+    var apiBase = getBootstrapApiBase();
+    if (!apiBase) {
+      runtimeConfig = { api_url: '', google_client_id: bootstrapConfig.google_client_id };
+      if (apiBaseUrlEl) apiBaseUrlEl.value = '';
+      showError('Enter API Gateway URL in Settings after saving config.');
+      return fetchInstances();
+    }
+    apiFetch('/config', { baseOverride: apiBase })
+      .then(function (res) {
+        if (res.ok) return res.json();
+        return {};
+      })
+      .then(function (data) {
+        if (data && (data.api_url || data.google_client_id)) {
+          runtimeConfig = {
+            api_url: (data.api_url || '').trim(),
+            google_client_id: (data.google_client_id || '').trim()
+          };
+        } else {
+          runtimeConfig = {
+            api_url: getBootstrapApiBase() || '',
+            google_client_id: bootstrapConfig.google_client_id || ''
+          };
+        }
+        if (apiBaseUrlEl) apiBaseUrlEl.value = runtimeConfig.api_url;
+        return fetchInstances();
+      })
+      .catch(function () {
+        runtimeConfig = {
+          api_url: getBootstrapApiBase() || '',
+          google_client_id: bootstrapConfig.google_client_id || ''
+        };
+        if (apiBaseUrlEl) apiBaseUrlEl.value = runtimeConfig.api_url;
+        return fetchInstances();
+      });
   }
 
   function signOut(silent) {
@@ -171,15 +212,57 @@
   }
 
   function apiFetch(path, options) {
-    var base = getApiBase();
-    if (!base) return Promise.reject(new Error('Set the API Gateway URL above'));
+    var base = (options && options.baseOverride) || getApiBase();
+    if (!base) return Promise.reject(new Error('API Gateway URL not configured. Check Settings.'));
     var url = base.replace(/\/$/, '') + path;
     var headers = { 'Content-Type': 'application/json' };
     if (options && options.headers) {
       Object.assign(headers, options.headers);
     }
     if (idToken) headers['Authorization'] = 'Bearer ' + idToken;
-    return fetch(url, Object.assign({}, options, { headers: headers }));
+    var opts = Object.assign({}, options);
+    delete opts.baseOverride;
+    return fetch(url, Object.assign({}, opts, { headers: headers }));
+  }
+
+  function saveConfig() {
+    var apiUrl = (apiBaseUrlEl && apiBaseUrlEl.value.trim()) || '';
+    var clientId = bootstrapConfig.google_client_id || '';
+    if (!apiUrl) {
+      showToast('API URL is required.', true);
+      return;
+    }
+    if (!clientId) {
+      showToast('Config not loaded. Refresh the page.', true);
+      return;
+    }
+    showError('');
+    apiFetch('/config', {
+      method: 'POST',
+      body: JSON.stringify({ api_url: apiUrl, google_client_id: clientId })
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          return res.text().then(function (text) {
+            var msg;
+            try {
+              var b = JSON.parse(text);
+              msg = b.error || res.statusText;
+            } catch (e) {
+              msg = text || res.statusText;
+            }
+            throw new Error((msg || 'Save failed') + ' (HTTP ' + res.status + ')');
+          });
+        }
+        return res.json();
+      })
+      .then(function () {
+        runtimeConfig = { api_url: apiUrl, google_client_id: clientId };
+        showToast('Config saved.', false);
+      })
+      .catch(function (err) {
+        showToast(err.message || 'Failed to save config', true);
+      });
   }
 
   function fetchInstances() {
@@ -189,10 +272,27 @@
         if (res.status === 401 || res.status === 403) {
           throw { authError: true, message: 'Unauthorized. Please sign in again.' };
         }
-        if (!res.ok) return res.json().then(function (b) { throw new Error(b.error || res.statusText); });
+        if (!res.ok) {
+          return res.text().then(function (text) {
+            var msg;
+            try {
+              var b = JSON.parse(text);
+              msg = b.error || res.statusText;
+            } catch (e) {
+              msg = (text && text.substring(0, 200)) || res.statusText;
+            }
+            var statusHint = res.status ? ' (HTTP ' + res.status + ')' : ' (check CORS/network)';
+            throw new Error((msg || 'Request failed') + statusHint);
+          });
+        }
         return res.json();
       })
-      .then(function (data) { renderInstances(data.instances || []); })
+      .then(function (data) {
+        if (!data || typeof data.instances === 'undefined') {
+          throw new Error('Invalid response format');
+        }
+        renderInstances(data.instances || []);
+      })
       .catch(function (err) {
         if (err && err.authError) {
           clearSessionUi();
@@ -201,6 +301,7 @@
         }
         showError(err.message || 'Failed to load instances');
         renderInstances([]);
+        throw err;
       });
   }
 
@@ -288,8 +389,23 @@
       body: JSON.stringify({ hours: hours })
     })
       .then(function (res) {
-        if (!res.ok) return res.json().then(function (b) { throw new Error(b.error || res.statusText); });
+        if (!res.ok) {
+          return res.text().then(function (text) {
+            var msg;
+            try {
+              var b = JSON.parse(text);
+              msg = b.error || res.statusText;
+            } catch (e) {
+              msg = text || res.statusText;
+            }
+            throw new Error((msg || 'Start failed') + ' (HTTP ' + res.status + ')');
+          });
+        }
         return res.json();
+      })
+      .then(function () {
+        showToast('Instance starting...', false);
+        return new Promise(function (resolve) { setTimeout(resolve, 1500); });
       })
       .then(fetchInstances)
       .catch(function (err) { showError(err.message || 'Start failed'); });
@@ -302,10 +418,24 @@
       body: JSON.stringify({ hours: hours })
     })
       .then(function (res) {
-        if (!res.ok) return res.json().then(function (b) { throw new Error(b.error || res.statusText); });
+        if (!res.ok) {
+          return res.text().then(function (text) {
+            var msg;
+            try {
+              var b = JSON.parse(text);
+              msg = b.error || res.statusText;
+            } catch (e) {
+              msg = text || res.statusText;
+            }
+            throw new Error((msg || 'Set duration failed') + ' (HTTP ' + res.status + ')');
+          });
+        }
         return res.json();
       })
-      .then(fetchInstances)
+      .then(function () {
+        showToast('Duration updated.', false);
+        return fetchInstances();
+      })
       .catch(function (err) { showError(err.message || 'Set duration failed'); });
   }
 
@@ -316,26 +446,33 @@
     toastEl.addEventListener('click', hideToast);
   }
 
-  if (apiBaseUrlEl) {
-    apiBaseUrlEl.addEventListener('change', function () {
-      localStorage.setItem('iw_api_url', apiBaseUrlEl.value.trim());
-    });
+  if (saveConfigBtnEl) {
+    saveConfigBtnEl.addEventListener('click', saveConfig);
   }
-  if (googleClientIdEl) {
-    googleClientIdEl.addEventListener('input', function () {
-      var value = googleClientIdEl.value.trim();
-      localStorage.setItem('iw_client_id', value);
-      if (value !== googleInitializedForClientId) initGoogleSignIn(true);
-    });
-    googleClientIdEl.addEventListener('change', function () {
-      var value = googleClientIdEl.value.trim();
-      localStorage.setItem('iw_client_id', value);
-      if (value !== googleInitializedForClientId) initGoogleSignIn(true);
+
+  var configToggleBtnEl = document.getElementById('config-toggle-btn');
+  var configContentEl = document.getElementById('config-content');
+  var configSectionEl = document.getElementById('config-section');
+  if (configToggleBtnEl && configContentEl && configSectionEl) {
+    configToggleBtnEl.addEventListener('click', function () {
+      var wasHidden = configContentEl.classList.contains('hidden');
+      configContentEl.classList.toggle('hidden');
+      configSectionEl.classList.toggle('expanded', wasHidden);
+      configToggleBtnEl.setAttribute('aria-expanded', wasHidden);
     });
   }
 
   window.addEventListener('load', function () {
     setAuthUi(false);
-    initGoogleSignIn(true);
+    fetch((window.location.href.replace(/[^/]*$/, '') || window.location.origin + '/') + 'config.json')
+      .then(function (res) { return res.ok ? res.json() : {}; })
+      .catch(function () { return {}; })
+      .then(function (cfg) {
+        bootstrapConfig = {
+          api_base_url: (cfg.api_base_url || '').trim(),
+          google_client_id: (cfg.google_client_id || '').trim()
+        };
+        initGoogleSignIn(true);
+      });
   });
 })();

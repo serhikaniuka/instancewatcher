@@ -218,6 +218,77 @@ header h1 {
 
 /* Main section */
 
+.config-section {
+    margin-bottom: 24px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.config-toggle-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.2s, background 0.2s;
+}
+
+.config-toggle-btn:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+}
+
+.config-toggle-icon {
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+}
+
+.config-section.expanded .config-toggle-icon {
+    transform: rotate(90deg);
+}
+
+.config-content {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+}
+
+.config-content.hidden {
+    display: none;
+}
+
+.config-content:not(.hidden) {
+    padding-top: 16px;
+}
+
+.config-section .config-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.config-section .config-inputs {
+    margin-bottom: 12px;
+}
+
+.config-section .config-inputs label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    display: block;
+}
+
+.config-section .config-inputs label:first-of-type {
+    margin-top: 0;
+}
+
 #main-section h2 {
     font-size: 1.1rem;
     font-weight: 600;
