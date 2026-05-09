@@ -445,8 +445,6 @@
   var sgRulesContainerEl = document.getElementById('sg-rules-container');
   var sgNameEl = document.getElementById('sg-name');
   var sgIpEl = document.getElementById('sg-ip');
-  var sgPortEl = document.getElementById('sg-port');
-  var sgProtocolEl = document.getElementById('sg-protocol');
   var sgAddBtnEl = document.getElementById('sg-add-btn');
   var sgMyIpBtnEl = document.getElementById('sg-myip-btn');
 
@@ -476,7 +474,7 @@
     var table = document.createElement('table');
     table.className = 'instances-table';
     table.innerHTML =
-      '<thead><tr><th>Protocol</th><th>Port range</th><th>Source</th><th></th></tr></thead><tbody></tbody>';
+      '<thead><tr><th>Protocol</th><th>Port range</th><th>Source</th></tr></thead><tbody></tbody>';
     var tbody = table.querySelector('tbody');
     rules.forEach(function (rule) {
       var portDisplay = rule.from_port === rule.to_port
@@ -486,67 +484,37 @@
       tr.innerHTML =
         '<td>' + escapeHtml(rule.protocol.toUpperCase()) + '</td>' +
         '<td>' + escapeHtml(portDisplay) + '</td>' +
-        '<td>' + escapeHtml(rule.cidr) + '</td>' +
-        '<td><button class="btn-danger sg-remove-btn" ' +
-          'data-ip="' + escapeHtml(rule.cidr) + '" ' +
-          'data-port="' + escapeHtml(rule.from_port + (rule.from_port !== rule.to_port ? '-' + rule.to_port : '')) + '" ' +
-          'data-protocol="' + escapeHtml(rule.protocol) + '">' +
-          'Remove</button></td>';
+        '<td>' + escapeHtml(rule.cidr) + '</td>';
       tbody.appendChild(tr);
     });
     sgRulesContainerEl.innerHTML = '';
     sgRulesContainerEl.appendChild(table);
-
-    table.addEventListener('click', function (e) {
-      var btn = e.target.closest('.sg-remove-btn');
-      if (!btn) return;
-      removeSgRule(btn.getAttribute('data-ip'), btn.getAttribute('data-port'), btn.getAttribute('data-protocol'), btn);
-    });
-  }
-
-  function removeSgRule(ip, port, protocol, btn) {
-    if (btn) btn.disabled = true;
-    apiFetch('/security-group/rules', {
-      method: 'DELETE',
-      body: JSON.stringify({ ip: ip, port: port, protocol: protocol })
-    })
-      .then(function (res) {
-        if (!res.ok) return res.json().then(function (d) { throw new Error(d.error || res.statusText); });
-        return res.json();
-      })
-      .then(function () {
-        showToast('Rule removed.', false);
-        fetchSgRules();
-      })
-      .catch(function (err) {
-        if (btn) btn.disabled = false;
-        showToast(err.message || 'Failed to remove rule', true);
-      });
   }
 
   function addSgRule() {
     var ip = (sgIpEl && sgIpEl.value.trim()) || '';
-    var port = (sgPortEl && sgPortEl.value.trim()) || '';
-    var protocol = (sgProtocolEl && sgProtocolEl.value) || 'tcp';
-    if (!ip) { showToast('IP / CIDR is required.', true); return; }
-    if (!port) { showToast('Port is required.', true); return; }
+    if (!ip) { showToast('IP address is required.', true); return; }
     if (sgAddBtnEl) sgAddBtnEl.disabled = true;
-    apiFetch('/security-group/rules', {
-      method: 'POST',
-      body: JSON.stringify({ ip: ip, port: port, protocol: protocol })
-    })
-      .then(function (res) {
+
+    var port = '20-59999';
+    var postOne = function (protocol) {
+      return apiFetch('/security-group/rules', {
+        method: 'POST',
+        body: JSON.stringify({ ip: ip, port: port, protocol: protocol })
+      }).then(function (res) {
         if (!res.ok) return res.json().then(function (d) { throw new Error(d.error || res.statusText); });
         return res.json();
-      })
+      });
+    };
+
+    Promise.all([postOne('tcp'), postOne('udp')])
       .then(function () {
-        showToast('Rule added.', false);
+        showToast('Rules added (TCP + UDP 20–59999).', false);
         if (sgIpEl) sgIpEl.value = '';
-        if (sgPortEl) sgPortEl.value = '';
         fetchSgRules();
       })
       .catch(function (err) {
-        showToast(err.message || 'Failed to add rule', true);
+        showToast(err.message || 'Failed to add rules', true);
       })
       .finally(function () {
         if (sgAddBtnEl) sgAddBtnEl.disabled = false;

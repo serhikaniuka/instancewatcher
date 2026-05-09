@@ -57,31 +57,9 @@
                         <p class="empty">Loading rules...</p>
                     </div>
                     <div class="sg-add-form">
-                        <h3>Add Inbound Rule</h3>
-                        <div class="sg-form-row">
-                            <div class="sg-form-group">
-                                <label for="sg-ip">IP / CIDR</label>
-                                <div class="sg-ip-row">
-                                    <input id="sg-ip" type="text" placeholder="1.2.3.4 or 1.2.3.4/32" autocomplete="off" />
-                                    <button id="sg-myip-btn" type="button" class="btn-secondary">My IP</button>
-                                </div>
-                            </div>
-                            <div class="sg-form-group">
-                                <label for="sg-port">Port / Range</label>
-                                <input id="sg-port" type="text" placeholder="25565 or 22-1000" autocomplete="off" />
-                            </div>
-                            <div class="sg-form-group">
-                                <label for="sg-protocol">Protocol</label>
-                                <select id="sg-protocol">
-                                    <option value="tcp">TCP</option>
-                                    <option value="udp">UDP</option>
-                                </select>
-                            </div>
-                            <div class="sg-form-group sg-form-submit">
-                                <label>&nbsp;</label>
-                                <button id="sg-add-btn" type="button" class="btn-primary">Add Rule</button>
-                            </div>
-                        </div>
+                        <input id="sg-ip" type="text" placeholder="IP address  (TCP + UDP  20–59999)" autocomplete="off" />
+                        <button id="sg-myip-btn" type="button" class="btn-secondary">My IP</button>
+                        <button id="sg-add-btn" type="button" class="btn-primary">Add</button>
                     </div>
                 </section>
             </div>
