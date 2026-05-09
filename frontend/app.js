@@ -362,10 +362,7 @@
         actionsHtml = '\u2014';
       }
 
-      var ipHtml = inst.public_ip
-        ? '<span title="Public">' + escapeHtml(inst.public_ip) + '</span>' +
-          (inst.private_ip ? '<br><span class="ip-private" title="Private">' + escapeHtml(inst.private_ip) + '</span>' : '')
-        : (inst.private_ip ? escapeHtml(inst.private_ip) : '\u2014');
+      var ipHtml = escapeHtml(inst.public_ip || inst.private_ip || '\u2014');
 
       tr.innerHTML =
         '<td>' + escapeHtml(name) + '</td>' +
