@@ -523,10 +523,11 @@
 
   function fetchMyIp() {
     if (sgMyIpBtnEl) sgMyIpBtnEl.disabled = true;
-    fetch('https://api.ipify.org?format=json')
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        if (sgIpEl && data.ip) sgIpEl.value = data.ip;
+    fetch('https://checkip.amazonaws.com')
+      .then(function (res) { return res.text(); })
+      .then(function (text) {
+        var ip = text.trim();
+        if (sgIpEl && ip) sgIpEl.value = ip;
       })
       .catch(function () { showToast('Could not detect your IP.', true); })
       .finally(function () { if (sgMyIpBtnEl) sgMyIpBtnEl.disabled = false; });
