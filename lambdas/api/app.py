@@ -415,6 +415,8 @@ def get_instances(event: dict) -> dict:
                     "name": name,
                     "state": state_name,
                     "instance_type": inst.get("InstanceType"),
+                    "public_ip": inst.get("PublicIpAddress") or "",
+                    "private_ip": inst.get("PrivateIpAddress") or "",
                 }
                 if state_name in ("running", "pending"):
                     try:

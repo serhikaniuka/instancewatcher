@@ -334,6 +334,7 @@
       '<th>Instance ID</th>' +
       '<th>State</th>' +
       '<th>Type</th>' +
+      '<th>IP</th>' +
       '<th>Time left</th>' +
       '<th>Actions</th>' +
       '</tr></thead><tbody></tbody>';
@@ -361,11 +362,17 @@
         actionsHtml = '\u2014';
       }
 
+      var ipHtml = inst.public_ip
+        ? '<span title="Public">' + escapeHtml(inst.public_ip) + '</span>' +
+          (inst.private_ip ? '<br><span class="ip-private" title="Private">' + escapeHtml(inst.private_ip) + '</span>' : '')
+        : (inst.private_ip ? escapeHtml(inst.private_ip) : '\u2014');
+
       tr.innerHTML =
         '<td>' + escapeHtml(name) + '</td>' +
         '<td><code>' + escapeHtml(inst.instance_id) + '</code></td>' +
         '<td><span class="state-badge state-' + escapeHtml(state) + '">' + escapeHtml(state) + '</span></td>' +
         '<td>' + escapeHtml(instanceType) + '</td>' +
+        '<td class="ip-cell">' + ipHtml + '</td>' +
         '<td>' + (isActive && remaining !== '\u2014' ? '<span class="remaining">' + remaining + '</span>' : '\u2014') + '</td>' +
         '<td class="actions-cell">' + actionsHtml + '</td>';
       tbody.appendChild(tr);
