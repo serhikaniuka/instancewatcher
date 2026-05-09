@@ -25,6 +25,10 @@ Parameters:
     Type: String
     Default: ""
     Description: Optional Google OAuth Web Client ID to enforce token audience
+  SgName:
+    Type: String
+    Default: minecraft-ssh
+    Description: Name of the EC2 security group to manage inbound rules for
 
 Resources:
   HttpApi:
@@ -34,6 +38,7 @@ Resources:
         AllowMethods:
           - GET
           - POST
+          - DELETE
           - OPTIONS
         AllowHeaders:
           - Authorization
@@ -77,6 +82,7 @@ Resources:
           ACTION_TABLE: !Ref InstanceEc2ActionTable
           ALLOWED_EMAIL: !Ref AllowedEmail
           GOOGLE_CLIENT_ID: !Ref GoogleClientId
+          SG_NAME: !Ref SgName
       Policies:
         - Version: "2012-10-17"
           Statement:
@@ -85,6 +91,9 @@ Resources:
                 - ec2:DescribeInstances
                 - ec2:StartInstances
                 - ec2:StopInstances
+                - ec2:DescribeSecurityGroups
+                - ec2:AuthorizeSecurityGroupIngress
+                - ec2:RevokeSecurityGroupIngress
               Resource: "*"
             - Effect: Allow
               Action:
@@ -121,6 +130,24 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /instances/{instance_id}/set-duration
             Method: POST
+        SgRulesGet:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /security-group/rules
+            Method: GET
+        SgRulesPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /security-group/rules
+            Method: POST
+        SgRulesDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /security-group/rules
+            Method: DELETE
 
   SchedulerFunction:
     Type: AWS::Serverless::Function

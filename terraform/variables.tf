@@ -41,3 +41,9 @@ variable "frontend_domain" {
   type        = string
   default     = "iw.kanyuka.info"
 }
+
+variable "sg_name" {
+  description = "Name of the EC2 security group to manage inbound rules for"
+  type        = string
+  default     = "minecraft-ssh"
+}

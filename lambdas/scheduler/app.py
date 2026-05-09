@@ -38,21 +38,24 @@ def lambda_handler(event, context):
 
     scan = state_table.scan()
     to_stop = []
-    for item in scan.get("Items", []):
+    def _stop_epoch(item):
         stop_at = item.get("stop_at")
         if stop_at is None:
-            continue
-        stop_epoch = int(stop_at) if isinstance(stop_at, (int, float)) else None
+            return None
+        try:
+            return int(stop_at)  # DynamoDB returns Decimal
+        except (TypeError, ValueError):
+            return None
+
+    for item in scan.get("Items", []):
+        stop_epoch = _stop_epoch(item)
         if stop_epoch is not None and stop_epoch <= now_epoch:
             to_stop.append(item.get("instance_id"))
 
     while scan.get("LastEvaluatedKey"):
         scan = state_table.scan(ExclusiveStartKey=scan["LastEvaluatedKey"])
         for item in scan.get("Items", []):
-            stop_at = item.get("stop_at")
-            if stop_at is None:
-                continue
-            stop_epoch = int(stop_at) if isinstance(stop_at, (int, float)) else None
+            stop_epoch = _stop_epoch(item)
             if stop_epoch is not None and stop_epoch <= now_epoch:
                 to_stop.append(item.get("instance_id"))
 

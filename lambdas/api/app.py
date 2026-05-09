@@ -26,6 +26,7 @@ ACTION_TABLE = os.environ.get("ACTION_TABLE", "instanceec2_action")
 USER_CONFIG_TABLE = os.environ.get("USER_CONFIG_TABLE", "instanceec2_user_config")
 ALLOWED_EMAIL = os.environ.get("ALLOWED_EMAIL", "").strip()
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+SG_NAME = os.environ.get("SG_NAME", "minecraft-ssh")
 
 # hours -> effective minutes (1h=50, 2h=110, 3h=170)
 HOURS_TO_MINUTES = {1: 50, 2: 110, 3: 170}
@@ -38,7 +39,7 @@ def _cors_headers(origin: Optional[str] = None) -> dict:
     return {
         "Access-Control-Allow-Origin": origin or "*",
         "Access-Control-Allow-Headers": "Authorization, Content-Type",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     }
 
 
@@ -182,6 +183,159 @@ def _put_user_config(email: str, api_url: str, google_client_id: str) -> None:
             "updated_at": now_epoch,
         }
     )
+
+
+def _find_sg_id(name: str):
+    resp = ec2.describe_security_groups(
+        Filters=[{"Name": "group-name", "Values": [name]}]
+    )
+    groups = resp.get("SecurityGroups", [])
+    if not groups:
+        return None, f"Security group '{name}' not found"
+    return groups[0]["GroupId"], None
+
+
+def _parse_port(port) -> tuple:
+    """Return (from_port, to_port) or raise ValueError."""
+    if isinstance(port, str) and "-" in port:
+        parts = port.split("-", 1)
+        return int(parts[0]), int(parts[1])
+    return int(port), int(port)
+
+
+def get_sg_rules(event: dict) -> dict:
+    err_resp, claims = _verify_token(event)
+    if err_resp is not None:
+        return err_resp
+
+    sg_id, err = _find_sg_id(SG_NAME)
+    if err:
+        return _response(404, {"error": err}, event)
+
+    resp = ec2.describe_security_groups(GroupIds=[sg_id])
+    sg = resp["SecurityGroups"][0]
+    rules = []
+    for perm in sg.get("IpPermissions", []):
+        protocol = perm.get("IpProtocol", "-1")
+        from_port = perm.get("FromPort")
+        to_port = perm.get("ToPort")
+        for ip_range in perm.get("IpRanges", []):
+            rules.append({
+                "protocol": protocol,
+                "from_port": from_port,
+                "to_port": to_port,
+                "cidr": ip_range.get("CidrIp", ""),
+            })
+    return _response(200, {"rules": rules, "sg_name": SG_NAME, "sg_id": sg_id}, event)
+
+
+def post_sg_rule(event: dict) -> dict:
+    err_resp, claims = _verify_token(event)
+    if err_resp is not None:
+        return err_resp
+
+    body = {}
+    if event.get("body"):
+        try:
+            body = json.loads(event["body"]) if isinstance(event["body"], str) else event["body"]
+        except Exception:
+            pass
+
+    ip = (body.get("ip") or "").strip()
+    port = body.get("port")
+    protocol = (body.get("protocol") or "tcp").strip().lower()
+
+    if not ip:
+        return _response(400, {"error": "ip is required"}, event)
+    if port is None:
+        return _response(400, {"error": "port is required"}, event)
+    if protocol not in ("tcp", "udp"):
+        return _response(400, {"error": "protocol must be tcp or udp"}, event)
+
+    if "/" not in ip:
+        ip = ip + "/32"
+
+    try:
+        from_port, to_port = _parse_port(port)
+    except (ValueError, TypeError):
+        return _response(400, {"error": "Invalid port or port range"}, event)
+
+    if not (0 <= from_port <= 65535 and 0 <= to_port <= 65535 and from_port <= to_port):
+        return _response(400, {"error": "Port out of valid range (0–65535)"}, event)
+
+    sg_id, err = _find_sg_id(SG_NAME)
+    if err:
+        return _response(404, {"error": err}, event)
+
+    try:
+        ec2.authorize_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=[{
+                "IpProtocol": protocol,
+                "FromPort": from_port,
+                "ToPort": to_port,
+                "IpRanges": [{"CidrIp": ip}],
+            }],
+        )
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "")
+        if code == "InvalidPermission.Duplicate":
+            return _response(409, {"error": "Rule already exists"}, event)
+        return _response(500, {"error": str(e)}, event)
+
+    return _response(200, {"message": "Rule added"}, event)
+
+
+def delete_sg_rule(event: dict) -> dict:
+    err_resp, claims = _verify_token(event)
+    if err_resp is not None:
+        return err_resp
+
+    body = {}
+    if event.get("body"):
+        try:
+            body = json.loads(event["body"]) if isinstance(event["body"], str) else event["body"]
+        except Exception:
+            pass
+
+    ip = (body.get("ip") or "").strip()
+    port = body.get("port")
+    protocol = (body.get("protocol") or "tcp").strip().lower()
+
+    if not ip:
+        return _response(400, {"error": "ip is required"}, event)
+    if port is None:
+        return _response(400, {"error": "port is required"}, event)
+
+    if "/" not in ip:
+        ip = ip + "/32"
+
+    try:
+        from_port, to_port = _parse_port(port)
+    except (ValueError, TypeError):
+        return _response(400, {"error": "Invalid port or port range"}, event)
+
+    sg_id, err = _find_sg_id(SG_NAME)
+    if err:
+        return _response(404, {"error": err}, event)
+
+    try:
+        ec2.revoke_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=[{
+                "IpProtocol": protocol,
+                "FromPort": from_port,
+                "ToPort": to_port,
+                "IpRanges": [{"CidrIp": ip}],
+            }],
+        )
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "")
+        if code == "InvalidPermission.NotFound":
+            return _response(404, {"error": "Rule not found"}, event)
+        return _response(500, {"error": str(e)}, event)
+
+    return _response(200, {"message": "Rule removed"}, event)
 
 
 def _effective_minutes(hours: int) -> int:
@@ -416,5 +570,12 @@ def lambda_handler(event: dict, context: Any) -> dict:
         parts = path.strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "instances" and parts[2] == "set-duration":
             return post_set_duration(event, parts[1])
+
+    if path == "/security-group/rules" and method == "GET":
+        return get_sg_rules(event)
+    if path == "/security-group/rules" and method == "POST":
+        return post_sg_rule(event)
+    if path == "/security-group/rules" and method == "DELETE":
+        return delete_sg_rule(event)
 
     return _response(404, {"error": "Not found"}, event)

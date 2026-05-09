@@ -182,7 +182,10 @@ resource "aws_iam_role_policy" "api" {
           "ec2:DescribeInstances",
           "ec2:DescribeRegions",
           "ec2:StartInstances",
-          "ec2:StopInstances"
+          "ec2:StopInstances",
+          "ec2:DescribeSecurityGroups",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupIngress"
         ]
         Resource = "*"
       },
@@ -298,6 +301,7 @@ resource "aws_lambda_function" "api" {
       USER_CONFIG_TABLE = aws_dynamodb_table.user_config.name
       ALLOWED_EMAIL     = var.allowed_email
       GOOGLE_CLIENT_ID  = var.google_client_id
+      SG_NAME           = var.sg_name
     }
   }
 
@@ -335,7 +339,7 @@ resource "aws_apigatewayv2_api" "main" {
 
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_methods = ["GET", "POST", "DELETE", "OPTIONS"]
     allow_headers = ["Authorization", "Content-Type"]
   }
 }
@@ -380,6 +384,24 @@ resource "aws_apigatewayv2_route" "start" {
 resource "aws_apigatewayv2_route" "set_duration" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /instances/{instance_id}/set-duration"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
+resource "aws_apigatewayv2_route" "sg_rules_get" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /security-group/rules"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
+resource "aws_apigatewayv2_route" "sg_rules_post" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /security-group/rules"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
+resource "aws_apigatewayv2_route" "sg_rules_delete" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "DELETE /security-group/rules"
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
 }
 

@@ -429,6 +429,146 @@ header h1 {
     padding: 32px 0;
 }
 
+/* Security group section */
+
+#sg-section {
+    margin-top: 32px;
+}
+
+#sg-rules-container {
+    overflow-x: auto;
+    margin-bottom: 24px;
+}
+
+.sg-add-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+}
+
+.sg-add-form h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+}
+
+.sg-form-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.sg-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sg-form-group label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.sg-form-group input,
+.sg-form-group select {
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.sg-form-group input:focus,
+.sg-form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.sg-form-group input::placeholder {
+    color: var(--text-muted);
+}
+
+#sg-ip {
+    width: 200px;
+}
+
+#sg-port {
+    width: 130px;
+}
+
+.sg-ip-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.btn-secondary {
+    padding: 8px 12px;
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.btn-primary {
+    padding: 8px 16px;
+    background: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: var(--radius);
+    color: #fff;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-danger {
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 @media (max-width: 600px) {
     #app {
         padding: 16px 12px;
