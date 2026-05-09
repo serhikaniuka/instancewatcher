@@ -45,5 +45,5 @@ variable "frontend_domain" {
 variable "sg_name" {
   description = "Name of the EC2 security group to manage inbound rules for"
   type        = string
-  default     = "minecraft-ssh"
+  default     = "Mynecraft-ssh"
 }
