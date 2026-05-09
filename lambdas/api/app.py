@@ -346,6 +346,12 @@ def get_health(event: dict) -> dict:
     return _response(200, {"status": "ok"}, event)
 
 
+def get_my_ip(event: dict) -> dict:
+    http = (event.get("requestContext") or {}).get("http") or {}
+    ip = http.get("sourceIp") or ""
+    return _response(200, {"ip": ip}, event)
+
+
 def get_config(event: dict) -> dict:
     err_resp, claims = _verify_token(event)
     if err_resp is not None:
@@ -553,6 +559,8 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     if path == "/health" and method == "GET":
         return get_health(event)
+    if path == "/my-ip" and method == "GET":
+        return get_my_ip(event)
     if path == "/config" and method == "GET":
         return get_config(event)
     if path == "/config" and method == "POST":

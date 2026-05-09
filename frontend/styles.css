@@ -444,6 +444,7 @@ header h1 {
     display: flex;
     gap: 8px;
     align-items: center;
+    width: 100%;
 }
 
 #sg-ip {

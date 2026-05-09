@@ -148,6 +148,12 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /security-group/rules
             Method: DELETE
+        MyIpRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /my-ip
+            Method: GET
 
   SchedulerFunction:
     Type: AWS::Serverless::Function

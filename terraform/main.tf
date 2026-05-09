@@ -357,6 +357,12 @@ resource "aws_apigatewayv2_route" "health" {
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
 }
 
+resource "aws_apigatewayv2_route" "my_ip" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /my-ip"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
 resource "aws_apigatewayv2_route" "config" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /config"
