@@ -474,7 +474,7 @@
     var table = document.createElement('table');
     table.className = 'instances-table';
     table.innerHTML =
-      '<thead><tr><th>Protocol</th><th>Port range</th><th>Source</th></tr></thead><tbody></tbody>';
+      '<thead><tr><th>Name</th><th>Protocol</th><th>Port range</th><th>Source</th></tr></thead><tbody></tbody>';
     var tbody = table.querySelector('tbody');
     rules.forEach(function (rule) {
       var portDisplay = rule.from_port === rule.to_port
@@ -482,6 +482,7 @@
         : rule.from_port + '–' + rule.to_port;
       var tr = document.createElement('tr');
       tr.innerHTML =
+        '<td>' + escapeHtml(rule.description || '—') + '</td>' +
         '<td>' + escapeHtml(rule.protocol.toUpperCase()) + '</td>' +
         '<td>' + escapeHtml(portDisplay) + '</td>' +
         '<td>' + escapeHtml(rule.cidr) + '</td>';
@@ -500,7 +501,7 @@
     var postOne = function (protocol) {
       return apiFetch('/security-group/rules', {
         method: 'POST',
-        body: JSON.stringify({ ip: ip, port: port, protocol: protocol })
+        body: JSON.stringify({ ip: ip, port: port, protocol: protocol, description: 'instance watcher ' + protocol })
       }).then(function (res) {
         if (!res.ok) return res.json().then(function (d) { throw new Error(d.error || res.statusText); });
         return res.json();

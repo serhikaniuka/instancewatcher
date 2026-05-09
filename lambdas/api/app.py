@@ -225,6 +225,7 @@ def get_sg_rules(event: dict) -> dict:
                 "from_port": from_port,
                 "to_port": to_port,
                 "cidr": ip_range.get("CidrIp", ""),
+                "description": ip_range.get("Description", ""),
             })
     return _response(200, {"rules": rules, "sg_name": SG_NAME, "sg_id": sg_id}, event)
 
@@ -244,6 +245,7 @@ def post_sg_rule(event: dict) -> dict:
     ip = (body.get("ip") or "").strip()
     port = body.get("port")
     protocol = (body.get("protocol") or "tcp").strip().lower()
+    description = (body.get("description") or "").strip()
 
     if not ip:
         return _response(400, {"error": "ip is required"}, event)
@@ -274,7 +276,7 @@ def post_sg_rule(event: dict) -> dict:
                 "IpProtocol": protocol,
                 "FromPort": from_port,
                 "ToPort": to_port,
-                "IpRanges": [{"CidrIp": ip}],
+                "IpRanges": [{"CidrIp": ip, "Description": description} if description else {"CidrIp": ip}],
             }],
         )
     except ClientError as e:
